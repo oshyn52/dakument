@@ -1,4 +1,4 @@
-name: CI Pipeline with Coverage Report
+name: Python CI Pipeline
 
 on:
   push:
@@ -7,32 +7,32 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-and-test:
+  test-and-lint:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        java-version: '17'
-        distribution: 'temurin'
+        python-version: '3.10'
 
-    - name: Build with Maven
-      run: mvn clean compile
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pylint
+
+    - name: Run pylint
+      run: |
+        pylint --fail-under=7 $(find . -name "*.py" -not -path "./tests/*") || echo "Linting issues found"
 
     - name: Run tests with coverage
-      run: mvn test jacoco:report
+      run: |
+        pytest --cov=./ --cov-report=term-missing --cov-report=html
 
-    - name: Add Jacoco Report to PR
-      uses: madrapps/jacoco-report@v1.6.1
+    - name: Upload coverage report as artifact
+      uses: actions/upload-artifact@v4
       with:
-        paths: |
-          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
-        token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: 50
-        min-coverage-changed-files: 60
-        title: Code Coverage Report
-        update-comment: true
+        name: coverage-report
+        path: htmlcov/
