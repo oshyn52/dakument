@@ -1,43 +1,38 @@
-name: CI Pipeline
+name: CI Pipeline with Coverage Report
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
-  test-and-lint:
+  build-and-test:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
       with:
-        python-version: '3.10'
+        java-version: '17'
+        distribution: 'temurin'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov pylint
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Build with Maven
+      run: mvn clean compile
 
     - name: Run tests with coverage
-      run: |
-        pytest --cov=./ --cov-report=xml --cov-report=html
+      run: mvn test jacoco:report
 
-    - name: Run pylint
-      run: |
-        pylint --fail-under=8.0 $(find . -name "*.py" -not -path "./tests/*") || echo "Linting issues found"
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+    - name: Add Jacoco Report to PR
+      uses: madrapps/jacoco-report@v1.6.1
       with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        token: ${{ secrets.CODECOV_TOKEN }}
-        verbose: true
+        paths: |
+          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 50
+        min-coverage-changed-files: 60
+        title: Code Coverage Report
+        update-comment: true
